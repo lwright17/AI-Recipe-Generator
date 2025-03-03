@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Recipe Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<<<<<<< HEAD
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Recipe Generator">
+=======
+>>>>>>> 8b2833d (Initial Commit)
+</head>
+<body>
+    <h1>AI Recipe Generator</h1>
+    <p>Enter ingredients you have, and get a custom recipe!</p>
+    
+    <input type="text" id="ingredientsInput" placeholder="Enter ingredients (comma-separated)">
+    <button onclick="fetchRecipe()">Get Recipe</button>
+
+    <div id="missingIngredients"></div>
+
+    <h2>Recipe:</h2>
+    <div id="recipeOutput"></div>
+
+    <script>
+        let userIngredients = [];
+
+        function fetchRecipe() {
+            userIngredients = document.getElementById("ingredientsInput").value.split(",").map(i => i.trim());
+
+            fetch("/check_ingredients", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ingredients: userIngredients })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.missing.length > 0) {
+                    askForMissingIngredient(data.missing, 0);
+                } else {
+                    generateRecipe(userIngredients);
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function askForMissingIngredient(missingIngredients, index) {
+            if (index >= missingIngredients.length) {
+                generateRecipe(userIngredients);
+                return;
+            }
+
+            let missingItem = missingIngredients[index];
+            let userResponse = confirm(`You are missing "${missingItem}". Do you have it?`);
+
+            if (userResponse) {
+                userIngredients.push(missingItem);
+            } else {
+                document.getElementById("missingIngredients").innerText = 
+                    "You are missing an essential ingredient. Please add more ingredients!";
+                return;
+            }
+
+            askForMissingIngredient(missingIngredients, index + 1);
+        }
+
+        function generateRecipe(ingredients) {
+            fetch("/get_recipe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ingredients: ingredients })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("recipeOutput").innerText = data.recipe || "Error generating recipe.";
+            })
+            .catch(error => console.error("Error:", error));
+        }
+    </script>
+</body>
+</html>
