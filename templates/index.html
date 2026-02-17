@@ -3,81 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Recipe Generator</title>
+    <title>Turntable BPM Fader Calculator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<<<<<<< HEAD
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Recipe Generator">
-=======
->>>>>>> 8b2833d (Initial Commit)
 </head>
 <body>
-    <h1>AI Recipe Generator</h1>
-    <p>Enter ingredients you have, and get a custom recipe!</p>
-    
-    <input type="text" id="ingredientsInput" placeholder="Enter ingredients (comma-separated)">
-    <button onclick="fetchRecipe()">Get Recipe</button>
+    <main class="card">
+        <h1>Turntable BPM Fader Calculator</h1>
+        <p>
+            Enter the BPM of the current song and the next track. 
+            This calculates where to place your pitch fader on a <strong>±8%</strong> turntable.
+        </p>
 
-    <div id="missingIngredients"></div>
+        <label for="currentBpm">Current song BPM</label>
+        <input type="number" id="currentBpm" min="1" step="0.01" placeholder="e.g. 128">
 
-    <h2>Recipe:</h2>
-    <div id="recipeOutput"></div>
+        <label for="nextBpm">Next track BPM (original)</label>
+        <input type="number" id="nextBpm" min="1" step="0.01" placeholder="e.g. 124">
+
+        <button id="calculateBtn">Calculate fader position</button>
+
+        <section id="result" aria-live="polite"></section>
+    </main>
 
     <script>
-        let userIngredients = [];
+        const MAX_RANGE = 8;
 
-        function fetchRecipe() {
-            userIngredients = document.getElementById("ingredientsInput").value.split(",").map(i => i.trim());
-
-            fetch("/check_ingredients", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ingredients: userIngredients })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.missing.length > 0) {
-                    askForMissingIngredient(data.missing, 0);
-                } else {
-                    generateRecipe(userIngredients);
-                }
-            })
-            .catch(error => console.error("Error:", error));
+        function formatBpm(value) {
+            return Number(value).toFixed(2);
         }
 
-        function askForMissingIngredient(missingIngredients, index) {
-            if (index >= missingIngredients.length) {
-                generateRecipe(userIngredients);
+        function calculateFader() {
+            const currentBpm = parseFloat(document.getElementById('currentBpm').value);
+            const nextBpm = parseFloat(document.getElementById('nextBpm').value);
+            const result = document.getElementById('result');
+
+            if (!Number.isFinite(currentBpm) || !Number.isFinite(nextBpm) || currentBpm <= 0 || nextBpm <= 0) {
+                result.className = 'result warning';
+                result.textContent = 'Please enter valid BPM values greater than 0.';
                 return;
             }
 
-            let missingItem = missingIngredients[index];
-            let userResponse = confirm(`You are missing "${missingItem}". Do you have it?`);
+            const requiredPercent = ((currentBpm / nextBpm) - 1) * 100;
+            const withinRange = requiredPercent >= -MAX_RANGE && requiredPercent <= MAX_RANGE;
 
-            if (userResponse) {
-                userIngredients.push(missingItem);
-            } else {
-                document.getElementById("missingIngredients").innerText = 
-                    "You are missing an essential ingredient. Please add more ingredients!";
+            if (withinRange) {
+                result.className = 'result ok';
+                result.innerHTML = `Set your next track fader to <strong>${requiredPercent >= 0 ? '+' : ''}${requiredPercent.toFixed(2)}%</strong>.\n` +
+                    `That brings ${formatBpm(nextBpm)} BPM to ${formatBpm(currentBpm)} BPM.`;
                 return;
             }
 
-            askForMissingIngredient(missingIngredients, index + 1);
+            const clampedPercent = Math.max(-MAX_RANGE, Math.min(MAX_RANGE, requiredPercent));
+            const closestBpm = nextBpm * (1 + clampedPercent / 100);
+
+            result.className = 'result warning';
+            result.innerHTML = `Required fader is <strong>${requiredPercent >= 0 ? '+' : ''}${requiredPercent.toFixed(2)}%</strong>, which is outside ±${MAX_RANGE}%.\n` +
+                `Closest you can get is <strong>${clampedPercent >= 0 ? '+' : ''}${clampedPercent.toFixed(2)}%</strong> ` +
+                `(${formatBpm(closestBpm)} BPM).`;
         }
 
-        function generateRecipe(ingredients) {
-            fetch("/get_recipe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ingredients: ingredients })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("recipeOutput").innerText = data.recipe || "Error generating recipe.";
-            })
-            .catch(error => console.error("Error:", error));
-        }
+        document.getElementById('calculateBtn').addEventListener('click', calculateFader);
     </script>
 </body>
 </html>
